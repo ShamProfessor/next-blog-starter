@@ -1,20 +1,29 @@
 import { FiGithub, FiLink } from 'react-icons/fi'
+import { RiNeteaseCloudMusicLine } from 'react-icons/ri'
 
 const config = {
-  name: 'xiaojun',
-  title: "xiaojun's blog",
-  desc: '为什么不问问神奇海螺 🐚 呢？',
-  avatar: '/avatar.png',
+  name: 'Owen',
+  title: "Owen's blog",
+  desc: 'Rapper and Web Developer',
+  avatar: '/avatar.jpg',
   logo: '/logo.svg', // header 左侧 logo
   socials: [
-    { label: 'Github', icon: <FiGithub className="text-lg" aria-hidden />, link: 'https://github.com/imzxj' },
-    { label: '友链', icon: <FiLink className="text-lg" aria-hidden />, link: '/blogroll' },
+    {
+      label: 'Github',
+      icon: <FiGithub className="text-lg" aria-hidden />,
+      link: 'https://github.com/imzxj',
+    },
+    {
+      label: '网易音乐人',
+      icon: <RiNeteaseCloudMusicLine className="text-lg" aria-hidden />,
+      link: 'https://music.163.com/#/artist?id=36523817',
+    },
   ],
   blogroll: [
     { name: '赖同学', link: 'https://www.laibh.com' },
     { name: '鯊手', link: 'https://www.cnblogs.com/Scooby' },
     { name: 'mghio', link: 'https://www.mghio.cn' },
-  ]
+  ],
 }
 
 export default config
