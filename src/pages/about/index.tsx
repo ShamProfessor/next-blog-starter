@@ -39,7 +39,7 @@ const Index: NextPageWithCustomProps = () => {
         <li>网易云音乐 - <Link href="https://music.163.com/#/artist?id=36523817">https://music.163.com/#/artist?id=36523817</Link></li>
       </ul>
 
-      <h2>🧭 参考</h2>
+      {/* <h2>🧭 参考</h2>
       本站灵感与部分代码参考或直接来自以下网站
       <ul>
         <li><Link href="https://www.joshwcomeau.com">https://www.joshwcomeau.com</Link></li>
@@ -50,7 +50,7 @@ const Index: NextPageWithCustomProps = () => {
         <li><Link href="https://github.com/iissnan/hexo-theme-next">https://github.com/iissnan/hexo-theme-next</Link></li>
         <li><Link href="https://github.com/sanjinhub/hexo-theme-geek">https://github.com/sanjinhub/hexo-theme-geek</Link></li>
         <li><Link href="https://github.com/nanxiaobei/hugo-paper">https://github.com/nanxiaobei/hugo-paper</Link></li>
-      </ul>
+      </ul> */}
     </div>
   )
 }
