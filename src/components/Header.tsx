@@ -18,7 +18,7 @@ import {
   withLatestFrom,
 } from 'rxjs'
 import useHasMounted from '@/hooks/useHasMounted'
-import { GiBasketballBasket } from 'react-icons/Gi'
+import { GiBasketballBasket } from 'react-icons/gi'
 
 export interface HeaderProps {}
 
