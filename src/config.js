@@ -1,17 +1,17 @@
-import { FiGithub, FiLink } from 'react-icons/fi'
+import { FiGithub } from 'react-icons/fi'
 import { RiNeteaseCloudMusicLine } from 'react-icons/ri'
 
 const config = {
   name: 'Owen',
   title: "Owen's blog",
-  desc: 'Rapper and Web Developer',
+  desc: 'Rapper and Frontend Web Developer',
   avatar: '/avatar.jpg',
   logo: '/logo.svg', // header 左侧 logo
   socials: [
     {
       label: 'Github',
       icon: <FiGithub className="text-lg" aria-hidden />,
-      link: 'https://github.com/imzxj',
+      link: 'https://github.com/ShamProfessor',
     },
     {
       label: '网易音乐人',

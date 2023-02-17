@@ -18,6 +18,7 @@ import {
   withLatestFrom,
 } from 'rxjs'
 import useHasMounted from '@/hooks/useHasMounted'
+import { GiBasketballBasket } from 'react-icons/Gi'
 
 export interface HeaderProps {}
 
@@ -104,11 +105,7 @@ const Header: React.FC<HeaderProps> = () => {
                 />
                 {/* logo (desktop) */}
                 <Link href="/">
-                  <img
-                    className="hidden sm:inline-block h-7 mr-4 cursor-pointer dark:invert"
-                    src={config.logo}
-                    alt="logo"
-                  />
+                  <GiBasketballBasket className="hidden sm:inline-block h-7 mr-4 cursor-pointer dark:invert" aria-hidden size={36} />
                 </Link>
                 {/* nav (mobile) */}
                 <animated.div

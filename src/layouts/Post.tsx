@@ -63,6 +63,7 @@ export interface PostLayoutProps {
 }
 
 const PostLayout: React.FC<PostLayoutProps> = props => {
+  console.log(props,'props---')
   const { t } = useTranslation('common')
   const {
     code,

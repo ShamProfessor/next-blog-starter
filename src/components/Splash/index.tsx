@@ -19,8 +19,8 @@ const Splash = () => {
           </div>
         )}
         <div className="flex flex-col justify-between ml-6 space-y-3 leading-none">
-          <h1 className="text-3xl sm:text-4xl font-medium">
-            <span>{config.title}</span>
+          <h1 className="text-2xl font-medium">
+            {config.title}
           </h1>
           <span className="text-zinc-400">{config.desc}</span>
           <div className="flex items-center gap-4">
