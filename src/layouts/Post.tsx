@@ -63,7 +63,6 @@ export interface PostLayoutProps {
 }
 
 const PostLayout: React.FC<PostLayoutProps> = props => {
-  console.log(props,'props---')
   const { t } = useTranslation('common')
   const {
     code,
@@ -92,7 +91,7 @@ const PostLayout: React.FC<PostLayoutProps> = props => {
         {title}
       </h1>
       {/* 最后更新时间 */}
-      <div className="text-gray-500 dark:text-gray-300 mt-4">
+      {/* <div className="text-gray-500 dark:text-gray-300 mt-4">
         <div className="flex items-center text-sm">
           <span className="flex items-center">
             <HiOutlineClock className="mr-1 text-lg" />
@@ -100,10 +99,11 @@ const PostLayout: React.FC<PostLayoutProps> = props => {
             {dayjs(updateOn || date).format('LL')} • {readingTime.text}
           </span>
         </div>
-      </div>
+      </div> */}
       {/* 标签 */}
       {tags && tags.length > 0 && (
         <div className="flex items-center flex-wrap m-auto mt-6 sm:mt-12 text-sm gap-2 sm:gap-3">
+          tag:
           {tags.map((tag: string) => (
             <Link key={tag} href={`/tags/${tag}`}>
               <a className="bg-pink-500/10 text-pink-500 hover:text-pink-700 px-2 py-1 rounded font-medium transition">

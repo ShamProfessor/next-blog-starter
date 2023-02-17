@@ -30,7 +30,15 @@ tags:
 
 举例来说，现在有一个叫做Person的构造函数，表示人对象的原型（可以理解成java中的类）。
 
-![test image](/images/js/class2.svg)
+```javascript
+function Person(name){
+   this.name = name;
+}
+//对这个构造函数使用new，就会生成一个人对象的实例。
+const pA = new Person('老王');
+console.log(pA.name); // 老王
+//注意构造函数中的this关键字，它就代表了新创建的实例对象。
+```
 
 ## prototype属性的由来
 
@@ -38,7 +46,21 @@ tags:
 
 比如，在Person对象的构造函数中，设置一个实例对象的共有属性race。
 
-![test image](/images/js/class3.svg)
+```javascript
+function Person(name){
+    this.name = name;
+    this.race = '汉族';
+}
+
+const pA = new Person('老王');
+const pB = new Person('老张');
+//这两个对象的race属性是独立的，修改其中一个，不会影响到另一个。
+
+pA.race = '苗族';
+console.log(pB.race); // 显示"汉族"，不受pA的影响
+
+//每一个实例对象，都有自己的属性和方法的副本。
+```
 
 按前面new运算符所述，**<font color="#008000">每一个实例对象，都有自己的属性和方法的副本。</font>** 但此时如果我们想在同类但不同对象间共享数据（继承）怎么办呢，解决此问题的方法就是prototype。
 
@@ -50,7 +72,24 @@ tags:
 
 还是以Person构造函数为例，现在用prototype属性进行改写：
 
-![test image](/images/js/class4.svg)
+```javascript
+function Person(name){
+  this.name = name;
+}
+
+Person.prototype = { race : '汉族' };
+const pA = new Person('老王');
+const pB = new Person('老张');
+
+console.log(pA.race); // 汉族
+console.log(pB.race); // 汉族
+
+//现在，race属性放在prototype对象里，是两个实例对象共享的。只要修改了prototype对象，就会同时影响到两个实例对象。
+
+Person.prototype.race = '苗族';
+console.log(pA.race); // 苗族
+console.log(pB.race); // 苗族
+```
 
 综上所述，由于所有的实例对象共享同一个prototype对象，那么从外界看起来，而实例对象则好像"继承"了prototype对象一样。
 
@@ -58,7 +97,14 @@ tags:
 
 ## 重写prototype属性、方法
 
-![test image](/images/js/class5.svg)
+```javascript
+Person.prototype.hairColor = 'black';
+Person.prototype.eat = function(){
+    console.log('Person eat')
+}
+console.log(pA)
+console.log(pB)
+```
 
 ![test image](/images/js/c1.png)
 
@@ -66,7 +112,11 @@ tags:
 
 另外我们还要注意：如果pA将头发染成了黄色，那么hairColor会是什么呢？
 
-![test image](/images/js/class6.svg)
+```javascript
+pA.hairColor = 'yellow'；
+console.log(pA)
+console.log(pB)
+```
 
 ![test image](/images/js/c2.png)
 
@@ -83,27 +133,85 @@ JavaScript 中一切皆对象。每个实例对象都有一个私有属性，称
 2. **<font color="#008000">原型对象prototype有一个默认的constructor属性，用于记录实例是由哪个构造函数创建；</font>**
 3. **<font color="#008000">除了Object的原型对象（Object.prototype）的__proto__指向null，其他内置函数的原型对象和自定义构造函数的原型对象的 __proto__都指向Object.prototype；</font>**
 
-![test image](/images/js/class7.svg)
+
+```javascript
+Object.prototype.__proto__ === null;
+Array.prototype.__proto__ === Object.prototype;
+```
 ![test image](/images/js/c4.png)
 
 ## 创建对象的方法
 ### 使用语法结构创建
 
-![test image](/images/js/class8.svg)
+```javascript
+cobst p = {name: "老三"};
+
+// p 这个对象继承了 Object.prototype 上面的所有属性
+// Object.prototype 的原型为 null
+// 此对象原型链如下：
+// p ---> Object.prototype ---> null
+
+cobst arr = [1,2,3,4,5];
+// 数组都继承于 Array.prototype
+// 原型链如下：
+// arr ---> Array.prototype ---> Object.prototype ---> null
+```
 
 ### 使用构造器创建
 在 JavaScript 中，构造器其实就是一个普通的函数。当使用 new 操作符 来作用这个函数时，它就可以被称为构造方法（构造函数）。
 
-![test image](/images/js/class9.svg)
+```javascript
+function Animal(name,age) {
+  this.name = name;
+  this.age = age;
+}
+
+Animal.prototype.eat = function(){
+    console.log('Animal eat')
+};
+
+const a = new Animal("cat",1);
+// a 是生成的对象，他的自身属性有 'name' 和 'age'。
+// 在 a 被实例化时，a.__proto__ 指向了 Animal.prototype。
+```
 
 ### 使用 Object.create 创建
 
 ECMAScript 5 中引入了一个新方法：Object.create()。可以调用这个方法来创建一个新对象。新对象的原型就是调用 create 方法时传入的第一个参数：
 
-![test image](/images/js/class10.svg)
+```javascript
+const a = {name: "老三"};
+// a ---> Object.prototype ---> null
+const b = Object.create(p);
+// b ---> p ---> Object.prototype ---> null
+console.log(b.name); // 老三 (继承而来)
+
+const c = Object.create(b);
+// c ---> b ---> a ---> Object.prototype ---> null
+
+const d = Object.create(null);
+// d ---> null
+console.log(d.hasOwnProperty); // undefined，因为 d 没有继承 Object.prototype
+```
 
 ### 使用 class 关键字
 ECMAScript6 引入了一套新的关键字用来实现 class。使用java、swift等面向对象的语言的开发人员会对这些结构感到熟悉，但它们是不同的。JavaScript 仍然基于原型。这些新的关键字包括 class, constructor，static，extends 和 super。
 
+```javascript
+class Animal {
+  constructor(name) {
+    this.name = name;
+  }
+}
 
-![test image](/images/js/class11.svg)
+class Person extends Animal {
+  constructor(name,sex) {
+    super(name);
+    this.sex = sex;
+    this.arrs = [1,2,3,4];
+  }
+  
+}
+
+const pC = new Person("老王","男");
+```

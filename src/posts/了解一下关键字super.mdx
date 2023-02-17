@@ -1,0 +1,144 @@
+---
+title: '了解一下关键字 super'
+tags:
+  - 'js'
+---
+
+# super
+
+首先看一下 MDN 关于 super 的介绍：
+
+<font color="#008000">
+  super 关键字用于访问对象字面量或类的原型（[[Prototype]]）上的属性，或调用父类的构造函数。
+</font>
+
+## 基本语法
+
+```javascript
+super([arguments]) // 调用父类的构造函数
+super.propertyOnParent
+super[expression]
+```
+
+## 使用方式
+
+- 作为“函数调用”（super(...args)。
+
+```javascript
+class A {}
+class B extends A {
+  constructor() {
+    super() // ES6 要求，子类的构造函数必须执行一次 super 函数，否则会报错。
+  }
+}
+```
+
+注：在 constructor 中必须调用 super 方法，因为子类没有自己的 this 对象，而是继承父类的 this 对象，然后对其进行加工,而 super 就代表了父类的构造函数。super 虽然代表了父类 A 的构造函数，但是返回的是子类 B 的实例，即 super 内部的 this 指的是 B，因此 super() 在这里相当于 ``A.prototype.constructor.call(this, props)`。
+
+```javascript
+class A {
+  constructor() {
+    console.log(new.target.name); // new.target 指向当前正在执行的函数
+  }
+}
+
+class B extends A {
+  constructor {
+    super();
+  }
+}
+
+new A(); // A
+new B(); // B
+```
+
+可以看到，在 super() 执行时，它指向的是 子类 B 的构造函数，而不是父类 A 的构造函数。也就是说，super() 内部的 this 指向的是 B。
+
+---
+
+- 作为 **对象** 使用（super.prop 和 super[expr]）。
+
+_在普通方法中，指向父类的原型对象；在静态方法中，指向父类。_
+
+```javascript
+class A {
+  c() {
+    return 2
+  }
+}
+
+class B extends A {
+  constructor() {
+    super()
+    console.log(super.c()) // 2
+  }
+}
+
+let b = new B()
+```
+
+上面代码中可以看出，子类 B 当中的 super.c()，就是将 super 当作一个对象使用。这时，super 在普通方法之中，指向 A.prototype，所以 super.c() 就相当于 A.prototype.c()。
+
+**通过 super 调用父类的方法时，super 会绑定子类的 this。**
+
+```javascript
+class A {
+  constructor {
+    this.x = 1;
+  }
+  s() {
+    console.log(this.x);
+  }
+}
+
+class B extends A {
+  constructor {
+    super();
+    this.x = 2;
+  }
+  m() {
+    super.s();
+  }
+}
+
+let b = new B();
+b.m(); // 2
+```
+
+上面代码中，super.s() 虽然调用的是 A.prototytpe.s()，但是 A.prototytpe.s()会绑定子类 B 的 this，导致输出的是 2，而不是 1。也就是说，实际上执行的是 super.s.call(this)。由于绑定子类的 this，所以如果通过 super 对某个属性赋值，这时 super 就是 this，赋值的属性会变成子类实例的属性。
+
+```javascript
+class A {
+  constructor {
+    this.x = 1;
+  }
+}
+
+class B extends A {
+  constructor {
+    super();
+    this.x = 2;
+    super.x = 3;
+    console.log(super.x); // undefined
+    console.log(this.x); // 3
+  }
+}
+
+let b = new B();
+```
+
+上面代码中，super.x 赋值为 3，这时等同于对 this.x 赋值为 3。而当读取 super.x 的时候，调用的是 A.prototype.x，但并没有 x 方法，所以返回 undefined。
+
+<font color="#008000">
+  注意，使用 super 的时候，必须显式指定是作为函数，还是作为对象使用，否则会报错。
+</font>
+
+```javascript
+class A {}
+class B extends A {
+  constructor() {
+    super();
+    console.log(super); // 报错
+  }
+}
+```
