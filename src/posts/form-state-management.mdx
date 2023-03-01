@@ -1,0 +1,132 @@
+---
+title: '探索前端表单状态管理方案'
+tags:
+  - 'Form'
+---
+
+## 前言
+
+作为一个前端开发，form 表单应该是日常碰到最多的业务场景。随着前端业务的日趋繁重，也对 form 表单的交互、性能、可扩展性等方面提出了更高的要求。国内依托表单业务发展成型的公司也数不胜数，代表有问卷星、问卷网、金数据等。本文从技术角度浅谈一下表单组件最核心的状态管理部分，以目前主流的几个解决方案为例展开讨论。(下图来自https://formilyjs.org/)
+
+![form](/images/js/form1.png)
+
+## Redux-Form
+
+作为一款过时的表单管理库，且 react 官方已不推荐使用，故不做详细介绍。
+### redux-form特点
+- 对redux用户友好，学习成本低。
+- 依赖redux管理数据流，数据流清晰。
+![form](/images/js/form12.webp)
+
+### Why Not Redux-Form?
+1. 性能问题：redux管理托管整个form的state，用户的任何一个按键操作都会引发状态的更新而后全局渲染整个表单
+2. 依赖 redux：用 redux 来管理表单数据流后来被证明是没有必要的，因为表单状态（很多时候）只是一种临时状态，存在redux是没有必要的，同时依赖redux增大了体积，
+而且导致很多原本不需要 redux 的项目强制安装 redux。
+
+:::tip
+
+- From Formik's author
+
+1. According to our prophet Dan Abramov, form state is inherently ephemeral and local, so tracking it in Redux (or any kind of Flux library) is unnecessary
+2. Redux-Form calls your entire top-level Redux reducer multiple times ON EVERY SINGLE KEYSTROKE. This is fine for small apps, but as your Redux app grows, input latency will continue to increase if you use Redux-Form.
+3. Redux-Form is 22.5 kB minified gzipped (Formik is 12.7 kB) 
+:::
+
+## Formik
+
+### 基本用法
+
+![form](/images/js/form6.png)
+
+上面的 demo 演示了 formik 最基本的用法，它通过 name 属性规定 field 的 path，也可以清晰的看出 formik 如何处理基本的表单事件（onChange、onBlur 等）：自上而下的通过 props 传播，这是一种典型的受控思想，及表单内部的事件通过 formik 提供的外部容器来进行托管。这与 react 的单向数据流不谋而合，也是 react 力荐 formik 的原因之一。同时内置了一些减少模板代码的基础组件，如 Form,Field,FieldArray,ErrorMessge 等，下面会介绍这些具体使用：
+
+#### &lt;Field /&gt; : UI 层的封装
+
+![form](/images/js/form7.png)
+
+- &lt;Field as/&gt;：as 可以是 react component 也是 HTML element，并且 formik 会自动注入（ onChange, onBlur, name, value）等 props：
+- &lt;Field children/&gt;：自定义 chidren，formik 通过 render props 的方式将（field,form,meta）传入 children
+- &lt;Field component/&gt;：自定义组件传递给 component,（field,form,meta）通过 props 向下传递。
+
+#### &lt;FastField /&gt;:含性能优化的 Field
+
+通过一层 HOC 包裹实际的 Field，然后在这个中间层中用 shouldComponentUpdate 决定当前更新的状态是否为该 HOC 包裹的 Field 状态。可以做到字段级别的更新
+
+#### &lt;Form /&gt;: 原生 form 标签的封装
+
+```javascript
+// so...
+<Form />
+// is identical to this...
+<form onReset={formikProps.handleReset} onSubmit={formikProps.handleSubmit} {...props} />
+```
+
+#### &lt;FieldArray /&gt;:
+
+方便处理数组列表等，并且提供了（ move, swap, push, insert, unshift, pop ）等方法
+
+#### hooks:
+
+- useFormik():简单来说是用于创建&lt;Formik/&gt;的 hook 实现，它返回了 formik 的提供给子组件的 props:
+
+![form](/images/js/form8.png)
+
+
+- useFormikContext()：用来提供全局上下文的，方便再嵌套层级较深的组件获取 formik 的状态。
+
+
+### 简单分析 formik 设计思想
+
+![form](/images/js/form2.webp)
+
+上文已经提到到了为什么不使用 redux-form 的原因， 所以 Formik 的设计一开始就抛开了 Redux，自己在内部维护了一个表单状态，并且提供了 FastField 做一定的性能优化，不过仍然是以表单整体为视角的粗粒度更新，本质上并没有逃开全局渲染。从源码看更清晰
+
+ ![form](/images/js/form4.png) 
+ 
+ 同时，&lt;Formik /&gt;的实现又是通过 context provider,提供了所有从 useFormik 获取到的 formikbag 
+ 
+ ![form](/images/js/form5.png)
+ 
+ FastField 更新策略
+  
+ ![form](/images/js/form3.png) 从上图可以看出更新的过程只是粗暴的对几个关键状态：value， error，touched 以及传入的 prop 的长度和 isSubmit 几个关键字段进行浅比。
+
+### formik 使用感想
+
+formik 剥离 redux 的依赖，一定程度缓解了全局渲染的性能问题，并且打包体积只有 12.7kb。但更细粒度的更新（字段级别）支持还不够，导致在字段过多或者更复杂的交互场景下，依然存在很明显的性能问题。曾经参与的项目业务背景，会频繁处理几十个甚至上百个字段的表单，经常发生输入、滚动、以及字段联动之间卡顿等问题，尝试过在Field级别做 React Memo 的方式，有一定的优化但不够明显，且工作量加倍提升。最后不得不改为下面即将介绍的 react-hook-form。
+
+## react-hook-form，以下简称RHF
+
+### 基本用法
+![form](/images/js/form9.png)
+
+#### 简单分析
+上面说到了formik的设计思想遵循了受控的模式，并且是通过维护整个表单内部state的方式来控制整个更新流程。RHF则与之不同，通过RHF的官网介绍以及上图中的demo：RHF通过ref的方式去获取field组件的内部状态，将整个表单的状态分散在每个field内部，各组件自身维护自己的状态。
+这样做，最直观的感受便是可以将rerender控制在最小粒度上（field级别），减少不必要的rerender。下面将会展开介绍。
+<font color="#008000">注：由于官网API内容较多且都较为详细，这里不做api的使用介绍，如需查看请移步[官网](https://react-hook-form.com/api)</font>
+
+#### 核心思路
+![form](/images/js/form10.jpg)
+
+除上图之外，RHF还做了以下事情：
+- 对错误进行浅层比较，例如上一轮渲染已经展示了错误信息 a， 如果这一轮渲染错误信息不变的话， 则不重新渲染。
+- 表单的内部状态(isDirty，touched，submitCount，isSubmitting 等等)统一用过 Proxy 包装， 在初次渲染的时候利用 Proxy 记录用户对于各个状态的订阅情况，不订阅的话变化将被忽略，不引发重新渲染。
+- 虽然 watch（from useForm()） 默认会触发全局渲染，不过 useWatch 可以做到不触发全局渲染的情况下通知某个字段的更新，本质上是订阅机制，将 useWatch 调用方的 state hook 维护在了表单的内部对象上，一旦有更新通过这种方式可以做到仅仅通知订阅组件。
+
+#### 动态校验以及联动
+上面说到了RHF是基于非受控组件的思想，所以在字段之间的联动和动态校验不具备天然的优势。所以为了支持动态校验，RHF 在进行表单注册的时候还会将 onChange、onBlur 等事件挂载到表单组件上，保证对与用户输入、修改行为的监听，从而可以对表单校验、表单值监听等进行触发。
+由于 RHF 不会将表单的值维护在 state 中，用户输入不会触发整表层的 JSX 更新，因此 RHF 提供了 watch，以及性能更好的 useWatch，来对于需要进行联动的表单进行注册，当用户进行修改的时候会调用更新。
+
+- watch 从使用位置上来说，更倾向于在表单顶层的监听。
+- useWatch 是把更新移到了更局部的位置，所以性能上更有优势。
+
+![form](/images/js/form11.webp)
+
+#### 感想
+使用一个成熟的表单状态管理将会有以下一些优点：
+1. 可以很好的将UI层和业务逻辑解耦，方便组件封装、抽象、扩展、代码维护等，尤其是在大型业务代码库中。
+2. 良好的渲染、交互性能，带来良好的用户反馈。
+3. 一个很好的学习过程，有助于提升编程思维，尤其在了解底层设计思想后。
+...
+
+#### TODO: 探索Formily

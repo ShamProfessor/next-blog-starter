@@ -1,0 +1,90 @@
+---
+title: '聊聊前端包管理工具'
+tags:
+  - 'js'
+---
+
+:::tip
+聚焦前端的三种包管理工具：pnpm VS yarn VS npm
+:::
+
+## npm的不足
+1. 依赖黑洞：早期npm的node_modules采用了嵌套结构，完全按照目录结构下载依赖树，容易造成依赖黑洞和依赖路径过长的问题。
+2. node_modules依赖冗余过多：在单个项目中，同一个版本的依赖包，可能被多次下载；多个项目中，每次都需要重新下载所有依赖包，浪费了大量的磁盘空间。
+3. 串行安装，要等队列中当前 package 安装成功后才会继续下一个package 的安装
+4. install 慢，无缓存，删除node_modules 后重新 install 无法利用缓存
+
+## npm2.x 
+```javascript
+node_modules
+    ├── moduleA
+    │   └── node_modules
+    │       └── moduleC
+    └── moduleB
+        └── node_modules
+            └── moduleC
+                └── node_modules
+                    └── moduleD
+```
+从上图可以看出多层嵌套结构，并且module C同时被A、B依赖，所以被重复下载了两次。
+
+## npm3.x
+```javascript
+node_modules
+   ├── moduleA
+   ├── moduleB
+   └── moduleC
+   └── moduleD
+```
+3.x采用了扁平化node_modules,将所有的子依赖都提升到根目录下，很大程度的解决了地狱依赖，以及磁盘空间浪费的问题，但同时又带来新的问题：
+
+### 幽灵依赖
+在package.json中没有声明的依赖包，因为被其他包依赖，被下载到node_modules根目录下，导致可以直接在项目中引用。
+
+### 下载文件的不确定性
+同一份package.json，下载出来的node_modules可能不一致。比如A、B依赖包同时依赖C包的不同版本，而C包只有一个版本被下载，具体是哪一个？
+为了解决这个问题，npm5.x中新增了package-lock.json文件，用来锁定依赖版本，确保了同一份package.json下载出来的node_modules目录结构一致，但幽灵依赖的问题依旧没有解决。
+
+## yarn的特点
+1. 采用扁平化管理node_modules。
+2. 安装速度快：yarn缓存了每个下载过的包，所以再次使用时无需重复下载，同时利用并行下载以最大化资源利用率，因此安装速度更快。
+3. yarn.lock:和package-lock.json类似，确保同个项目同一份依赖。
+
+## pnpm：新一代包管理工具
+:::tip
+Fast, disk space efficient package manager
+:::
+
+```javascript 
+node_modules
+ .pnpm
+   <package-name>@<version>/node_modules/<package-name>
+ react
+ eslint
+ ...
+ ```
+### 主要特点：
+1. 节省磁盘空间：所有文件都会存储在硬盘上的某一位置。 当软件包被被安装时，包里的文件会硬链接到这一位置，而不会占用额外的磁盘空间。并且可以跨项目地共享同一版本的依赖,所以在磁盘上节省了大量空间，并且安装速度要快得多。
+2. 基于内容寻址：依赖被存储在内容可寻址的存储中，软件包升级的过程中只需要存储改动的部分，不需要新版本的完整内容。
+3. 没有幽灵依赖：只有项目中真正依赖的包才会在node_modules下，其他所有的子依赖，在 *package-name@version* 的方式铺平在.pnpm下。
+
+### pnpm如何处理包之间的依赖关系（store + link）
+1. store: pnpm默认会将所有依赖包下载到系统home dir/Library/pnpm/store/v3中，系统中相同文件只会存在一份。
+2. 硬链接：通过索引节点来进行链接。pnpm install的时候会先看store中是否存在该文件，如果存在，则会在.pnpm下创建一个该文件的硬链接。hard link到store中对应的文件，而不是重新下载。这样既保证了下载速度，也提升了磁盘利用率。
+3. 软链接：依赖包和子依赖包都是通过软链接的方式，都是从 *.pnpm/package-name@version/node_modules/package-name* 目录下链接过来:
+ ![cssInJs](/images/js/cij7.png)
+
+### 软链接和硬链接对比
+ ![cssInJs](/images/js/cij6.png)
+
+## tips：使用corepack「管理包管理器的管理器」
+Corepack是一个实验性工具，在 Node.js v16.13 版本中引入，它可以指定项目使用的包管理器以及版本, 简单来说，Corepack 会成为 Node.js 官方的内置 CLI，用来管理『包管理工具（npm、yarn、pnpm、cnpm）』，用户无需手动安装，即『包管理器的管理器』。
+
+### 手动开启corepack：corepack enable
+
+### 指定项目的包管理工具：
+
+在项目package.json 文件中新增属性 "packageManager"，比如"packageManager：yarn@1.22.15" 代表当前项目只允许使用yarn 包管理器并指定1.22.15版本
+
+
+<font color="#008000">推荐一篇更详细的文章：https://juejin.cn/post/7121386382936768542</font>
