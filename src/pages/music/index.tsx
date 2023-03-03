@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { GetStaticProps } from 'next'
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
 import dynamic  from 'next/dynamic'
-const Music = dynamic(import('./music'), { ssr: false })
+const Music = dynamic(() => import('./music'), { ssr: false })
 
 const Index = () => {
   return (
