@@ -1,0 +1,363 @@
+---
+title: '浅入浅出前端状态管理现状'
+date: '2023-03-02 10:50:30'
+tags:
+  - 'js'
+---
+
+## 1. 前言
+
+react/vue 等前端框架的诞生，使得前端开发进入了全新的模式——组件化。摆脱掉传统的 dom operation 后，代码复用率得到很大的提升，但同时也带来了组件之间通信的问题。如何管理好前端状态，变得尤为重要，尤其是在大型 web 项目中。本文主要探讨主流的几个状态管理库，浅谈各自的实现原理以及具体使用过程。
+
+## 2. Redux
+
+### 2.1 Redux 工作流程
+
+1. 用户在页面上进行某些操作，通过 dispatch 发送一个 action。
+2. Redux 接收到这个 action 后通过 reducer 函数获取到下一个状态。
+3. 将新状态更新进 store，store 更新后通知页面进行重新渲染。
+
+图解: ![form](/images/js/fsm1.webp) 
+
+从图中可以看出 redux 的核心就是一个*发布-订阅*。view 订阅 store 的变化，store 发生改变后通知所有的订阅者，view 收到通知后进行 rerender。
+
+### 2.2 Redux 三大原则
+
+1. 单一数据源：所有的状态存在一个 store 里，一个应用一般只有一个 store。
+2. state 只读：唯一改变 state 的方法是通过 dispatch 触发 action，action 描述了这次修改行为的相关信息。只允许通过 action 修改可以避免一些 mutable 的操作，保证状态不会被随意修改。
+3. 通过纯函数来修改：通过编写 reducer 函数修改状态。reducer 函数接收前一次的 state 和 action，返回新的 state。 _<font color="#008000">注：reducer 需要返回新对象的原因：如果返回旧对象，想要知道前后状态是否更改就需要进行深比较，此时会带来一定的性能消耗。redux 默认会进行一次浅比较。</font>_
+
+以上三大原则保证了 redux 在运行过程中，整个状态变更是可预测的。
+
+### 2.3 Middleware 和 Store Enhancer
+
+由于 reducer 是纯函数，所以 redux 本身不会处理副作用（异步请求，缓存等）。所以便有了 middleware 的产生。
+
+middleware 是在发起 action 之后，到 reducer 之前的扩展，它相当于对 dispatch 进行了一个增强，让其拥有更多的能力。以 redux-thunk 为例，只需要在创建 store 的时候通过 applyMiddleware 来注册中间件就可以了。
+
+```javascript
+import thunk from 'redux-thunk'
+const store = createStore(reducers, applyMiddleware(thunk))
+//这样就允许我们的 action 作为一个函数来发送异步请求了。如下例子， FETCH_LIST 会在请求返回后发送出去。
+const fetchList = () => {
+  return async dispatch => {
+    const list = await api.getList()
+    dispatch({
+      type: FETCH_LIST,
+      payload: {
+        list,
+      },
+    })
+  }
+}
+dispatch(fetchList())
+```
+
+上图中的 applyMiddleware 就是一个 store enhancer,原理如下(核心在于 compose 方法，循环调用 dispatc）：
+
+```javascript
+export default function applyMiddleware(...middlewares) {
+  return createStore => (reducer, preloadedState) => {
+    const store = createStore(reducer, preloadedState)
+    let dispatch = () => {
+      throw new Error('error...')
+    }
+    const middlewareAPI: MiddlewareAPI = {
+      getState: store.getState,
+      dispatch: (action, ...args) => dispatch(action, ...args),
+    }
+    const chain = middlewares.map(middleware => middleware(middlewareAPI))
+    dispatch = compose(...chain)(store.dispatch)
+
+    return {
+      ...store,
+      dispatch,
+    }
+  }
+}
+```
+
+### 2.4 浅析 redux 原理
+```javascript
+// 创建state仓库
+function createStore(reducer, preloadedState) {
+  // reducer ：action 改变 state 的动作
+  let currentReducer = reducer
+  // 初始化状态
+  let currentState = preloadedState
+  // 订阅的事件，当 state 变更时触发
+  let currentListeners = []
+  // 获取当前的 state
+  function getState() {
+    return currentState
+  }
+  // 事件订阅
+  function subscribe(listener) {
+    currentListeners.push(listener)
+    // 返回取消事件订阅
+    return function unsubscribe() {
+      const index = currentListeners.indexOf(listener)
+      currentListeners.splice(index, 1)
+    }
+  }
+  // 派发 action
+  function dispatch(action) {
+    currentState = currentReducer(currentState, action)
+    for (let i = 0; i < currentListeners.length; i++) {
+      const listener = currentListeners[i]
+      listener()
+    }
+    return action
+  }
+  // 初始化状态
+  dispatch({ type: ActionTypes.INIT })
+  const store = {
+    dispatch,
+    subscribe,
+    getState,
+  }
+  // 返回store
+  return store
+}
+```
+
+### 2.5 React-redux
+
+![FSM](/images/js/fsm3.awebp)
+
+1. 借助 Provider 组件，使得子组件可以获得 store 实例
+2. 通过 connect 函数，以高阶组件的方式传递特定的 state 和 actions。
+
+connect 本身也是一个高阶组件，我们通过 Provider 将 store 传给子孙组件。在 connect 里面通过 subscribe 监听了 store，一旦 store 变化，它就让 React 组件重新渲染。
+:::tip
+connect 函数接受两个参数：mapStateToProps 和 mapDispatchToProps。mapStateToProps 是从 state 对象中筛选出当前需要的属性；mapDispatchToProps 当前需要用到的 actions。返回的是一个高阶函数，它接受一个组件为参数，返回一个函数组件。相当于把原来的组件经过包装之后，变成了拥有 store 中特定 state 和 action 的组件。
+
+:::
+
+```javascript
+const connect = (mapStateToProps, mapDispathToProps) => WrappedComponent => {
+  return class extends React.Component {
+    static contextType = ReactReduxContext
+    constructor(props) {
+      super(props)
+      this.store = this.context.store
+      this.state = {
+        state: this.store.getState(),
+      }
+    }
+    componentDidMount() {
+      this.store.subscribe(nextState => {
+        // 浅比较
+        if (!shadowCompare(nextState, this.state.state)) {
+          this.setState({ state: nextState })
+        }
+      })
+    }
+    render() {
+      const props = {
+        ...mapStateToProps(this.state.state),
+        ...mapDispathToProps(this.state.state),
+        ...this.props,
+      }
+      return <WrappedComponent {...props} />
+    }
+  }
+}
+```
+### 2.6 使用场景
+1. 将副作用扔给中间件来处理，导致社区一堆中间件，学习成本陡然增加。比如处理异步请求的 Redux-saga、计算衍生状态的 reselect。
+2. 需要书写太多的样板代码： actions、reducers、actionTypes 等文件，还要在 connect 的地方暴露给组件来使用。这对于后期维护也是一件很痛苦的事情。
+
+鉴于以上缺陷，redux更适用于大型项目，交互复杂且组件通信频繁的场景。小型项目推荐使用reduxjs/toolkit。
+
+## 3. Redux/toolkit（RTK）
+
+### 3.1 RTK做了什么
+- configureStore() 包裹createStore，并集成了redux-thunk、Redux DevTools Extension，默认开启
+- createReducer() 创建一个reducer，action type 映射到 case reducer 函数中，不用写switch-case，并集成immer
+- createAction() 创建一个action，传入动作类型字符串，返回动作函数
+- createSlice() 创建一个slice，包含 createReducer、createAction的所有功能
+- createAsyncThunk() 创建一个thunk，接受一个动作类型字符串和一个Promise的函数
+- ...
+### 3.2 创建action
+```javascript
+//创建 action
+const increment = createAction('INCREMENT')
+const decrement = createAction('DECREMENT')
+
+//创建reducer
+const counter = createReducer(0, {
+  [increment]: state => state + 1,
+  [decrement]: state => state - 1
+})
+```
+### 3.3 创建一个slice
+```javascript
+const counterSlice = createSlice({
+  name: 'counter',
+  initialState: 0,
+  reducers: {
+    increment: state => state + 1,
+    decrement: state => state - 1
+  }
+})
+
+# action
+counterSlice.action;
+# reducer
+counterSlice.reducer;
+```
+### 3.4 创建一个selector
+```typescript
+//配合 react-redux 中 useSelector hook使用
+export const selectCount = (state: RootState) => state.counter.value;
+```
+### 3.5 创建一个thunk
+```typescript
+//对于一部请求API，可以配合async/await使用
+export const incrementAsync = (amount: number): AppThunk => dispatch => {
+  setTimeout(() => {
+    dispatch(incrementByAmount(amount));
+  }, 1000);
+};
+```
+### 3.6 使用（搭配hook）
+```typescript
+import { useSelector, useDispatch } from 'react-redux';
+//导入slice
+import {
+  increment,
+  incrementByAmount,
+  incrementAsync,
+  selectCount,
+} from './counterSlice';
+
+//使用
+const count = useSelector(selectCount);
+const dispatch = useDispatch();
+dispatch(increment())
+dispatch(incrementByAmount(Number(xxx)))
+dispatch(incrementAsync(Number(xxx)))
+```
+
+## 4. Mobx
+更redux不同的是，mobx是响应式，可以直接修改状态。并且借助于装饰器的实现，使得代码更加简洁易懂
+1. 页面事件触发 action 的执行。
+2. 通过 action 来修改状态。
+3. 状态更新后，computed 计算属性也会根据依赖的状态重新计算属性值。
+4. 状态更新后会触发 reaction，从而触发rerender。
+
+### 4.1 observable
+observable 可以将接收到的值包装成可观察对象，这个值可以是 JS 基本数据类型、引用类型、普通对象、类实例、数组和映射等等等。
+```javascript
+const todoStore = observable({
+    // observable 属性:
+    todos: [],
+    // 计算属性:
+    get completedCount() {
+        return (this.todos.filter(todo => todo.isCompleted) || []).length
+    }
+});
+//直接修改，严格模式需在action中执行
+todoStore.todos[0] = {isCompleted:true}
+```
+### 4.2 computed（计算依赖）
+```javascript
+class TodoStore {
+    @observable todos = []
+    //todos 改变则会引起completedCount更改
+    @computed get completedCount() {
+   return (this.todos.filter(todo => todo.isCompleted) || []).length
+  }
+}
+```
+### 4.3 reaction 和 autorun（）
+autorun 接收一个函数，当这个函数中依赖的可观察属性发生变化的时候，autorun 里面的函数就会被触发。除此之外，autorun 里面的函数在第一次会立即执行一次。
+
+使用 reaction 可以在监听到指定数据变化的时候执行一些操作，和 Vue 中的 watch 非常像。
+```javascript
+const person = observable({
+    age: 20
+}) 
+// autorun 里面的函数会立即执行一次(reaction不会)，当 age 变化的时候会再次执行一次
+autorun(() => {
+    console.log("age", person.age);
+})
+person.age = 21;
+// 输出：
+// age 20
+// age 21
+```
+### 4.4 observer 和 inject
+mobx-react 中提供了一个 observer 方法，这个方法主要是改写了 React 的 render 函数，当监听到 render 中依赖属性变化的时候就会重新渲染组件，这样就可以做到高性能更新。
+
+### 4.5 原理分析
+1. 用 Object.defineProperty 或者 Proxy 来拦截 observable 包装的对象属性的 get/set 。
+2. 在 autorun 或者 reaction 执行的时候，会触发依赖状态的 get，此时将 autorun 里面的函数和依赖的状态关联起来。也就是我们常说的依赖收集。
+3. 当修改状态的时候会触发 set，此时会通知前面关联的函数，重新执行他们。
+
+## 5. Recoil
+更精准的更新，相比 Redux 维护的全局 Store，Recoil 则是使用了分散式的 Atom 来管理，方便进行代码分割。
+
+### 5.1 Atom 
+可写可订阅
+```javascript
+import { atom } from 'recoil';
+
+const counterState = atom({
+  key: 'counter',
+  default: 0,
+});
+```
+### 5.2 RecoilRoot
+RecoilRoot 是一个HOC，有点儿类似于 Redux 的 Provider 函数，它初始化了一个 Store，将 Store 通过 Context 传下去。
+一般是放到根组件里面，一个项目可以允许有多个 RecoilRoot
+```javascript
+const rootElement = document.getElementById("root");
+ReactDOM.render(
+  <RecoilRoot>
+    <App />
+  </RecoilRoot>,
+  rootElement
+);
+```
+
+### 5.3 useRecoilState
+useRecoilState:一个对 atom 进行读写的 hook,使用这个 hook 的组件都将会订阅这个 atom。用法类似useState()
+```javascript
+const [todos, setTodos] = useRecoilState(todosState);
+
+const handleToggleComplete = (id) => {
+  const index = findIndex(todos, id);
+  if (index < 0) return;
+  const todo = todos[index];
+  setTodos([...todos.slice(0, index), { ...todo, isComplete: !todo.isComplete }, ...todos.slice(index + 1)]);
+};
+```
+
+### 5.4 useRecoilValue/useSetRecoilState
+useRecoilValue：只订阅，useSetRecoilState：只修改。
+
+### 5.5 selector
+类似于computed，依赖发生变化时重新计算并通知组件更新。
+```javascript
+const todoState = atom({
+  key: 'todos',
+  default: []
+});
+
+const completeCountSelector = selector({
+  key: 'completeCount',
+  get({ get }) {
+    const todos = get(todoState);
+    return todos.filter(todo => todo.isComplete).length;
+  }
+});
+```
+### 5.6 浅析原理
+1. 创建一个 atom 对象
+2. 使用 selector 的时候，会通过 get 来获取到依赖的 atom，生成一个 Map 映射关系
+3. 使用 useRecoilState Hook 的时候，会将当前 atom/selector 和组件的 forceUpdate 方法进行映射
+4. 当对状态进行修改的时候，会从映射关系里面取出来对应的组件 forceUpdate 方法，进行精准更新
+
+### 5.7 todo:源码分析

@@ -30,7 +30,7 @@ const Header: React.FC<HeaderProps> = () => {
   const menus = useMemo(
     () => [
       { label: t('nav.home'), href: '/' },
-      { label: t('nav.music'), href: '/' },
+      { label: t('nav.music'), href: '/music' },
       { label: t('nav.tags'), href: '/tags' },
       { label: t('nav.about'), href: '/about' },
     ],
