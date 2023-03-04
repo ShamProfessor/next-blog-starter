@@ -1,4 +1,6 @@
-import ReactPlayer from 'react-aplayer'
+import useHasMounted from '@/hooks/useHasMounted'
+import dynamic from 'next/dynamic'
+const RcPlayer = dynamic(() => import('react-aplayer'), { ssr: false }) as any
 
 const audio = [
   {
@@ -59,9 +61,10 @@ const audio = [
   },
 ]
 const Music = () => {
+    const hasMounted =  useHasMounted()
   return (
     <>
-      <ReactPlayer audio={audio} />
+    {hasMounted ? <RcPlayer audio={audio as any} /> : '播放器loading'}
     </>
   )
 }
