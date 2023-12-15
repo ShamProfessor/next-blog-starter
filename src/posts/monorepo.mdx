@@ -1,0 +1,65 @@
+---
+title: '2023前端monorepo实战'
+tags:
+  - 'monorepo'
+---
+
+# 背景
+*两个项目，一个对外，一个对内：不同的脚手架，不同的开发模式，相同的内容。内网的项目迭代多年已成熟，对外的基于另一套脚手架从0到1搭建。*
+
+## 方案选型🛜
+1.  Yarn Workspace   
+优点：它可以确保在多个包之间共享相同的依赖版本，并且只需要一次安装。这样可以提高安装速度，减少磁盘空间的使用，并提高代码的一致性。     
+缺点：Yarn Workspaces只能与Yarn一起使用。配置和一些功能有一定学习成本。   
+2.  Lerna   
+优点：Lerna可以与Yarn Workspaces一起使用，进一步提高效率。  
+缺点：Lerna的配置可能比较复杂，学习成本较高特别是对于大型项目。此外，与Yarn Workspaces相比，Lerna的安装和链接过程可能会慢一些。   
+3.  Pnpm Workspace    
+优点：Pnpm Workspaces提供了一种高效的方式来管理和链接多个包。与Yarn和Lerna相比，Pnpm更加注重性能和磁盘空间的使用。【软/硬链接】  
+缺点：社区和生态系统仍然不如Yarn和Lerna。因此，对于某些特定的需求和问题，你可能找不到现成的解决方案或插件。   
+
+**<font color="#008000">鉴于pnpm的性能，以及更方便的依赖管理，采用了pnpm workspace。</font>**
+
+## 实操🔧
+- 安装pnpm：npm install -g pnpm （alias pn=pnpm）
+- pn init 创建新项目 
+- 在项目根目录下，创建pnpm-workspace.yaml：(这里采用/*的通配符，可以指定所有的package,将两个项目分别作为子项目存放在packages/目录下)    
+        packages:   
+          \- 'packages/*' 
+- 将两个项目除node modules外的部分迁移至packages下。
+- 最外层package.json中配置相关scripts命令。
+
+:::tip
+一些常用的pnpm命令（和npm使用方式基本一致，略有区别）：    
+⏺️  pnpm add *package-name* ：添加单个依赖(-D,-g,@xx等后缀用法和npm基本相同) 。
+⏺️  pnpm install：用于安装项目的所有依赖项。(别名 pnpm i) 。   
+⏺️  pnpm update：根据指定的范围将包更新到最新版本。（别名 pnpm up）。   
+⏺️  pnpm link：使当前本地包可在系统范围内或在其他位置访问，例如在jg项目下执行此命令后，可在tea-app下执行pn link jg，实现代码共享和互相引用（别名 pnpm ln）。
+⏺️  pnpm prune：删除不必要的包，注意这个命令不支持在monorepo中递归执行，需要在每个项目的根目录下执行。   
+⏺️  pnpm remove ：删除指定包。（别名 pnpm rm/uninstall/un）。   
+⏺️  pnpm run：运行脚本，默认可省去run关键字。（注意和npm run的区别，pnpm run默认不会执行pre和post 钩子）。   
+⏺️  pnpm --filter：过滤器。选项允许在pnpm workspace（工作区）中针对特定的子项目执行命令。通过使用过滤器，可以选择要执行操作的子项目，而不是针对整个工作区的所有子项目执行操作，
+例如：pnpm install --filter tea-app，在tea-app项目下执行install。  
+⏺️  pnpm ls：查看依赖版本（package.json已声明的）。   
+:::
+
+
+## 改造中的问题记录记录📝
+1. **版本冲突问题**：pnpm workspace的工作机制（共享同一份node modules，所有的依赖都拍平下载至最外层node modules/.pnpm下），再加上两个子项目的脚手架依赖的版本差异化比较大，导致版本冲突不可避免，然而这种冲突大多是出现在隐式依赖上（未在package.json中显式声明）这时候会出现依赖版本错误：例如两个子项目的webpack是v4和v5，项目编译过程中可能会出现的情况：v4使用到了v5依赖的loader，因为pnpm会尽量重用相同版本的依赖项，所以可能会导致一个项目中载入了其他项目启用的依赖。<br />
+   **<font color="#008000">解决办法：在package.json中显示声明对应的版本，比如指定loader的版本，这些版本需要自行去check，优先按照原项目的对应版本。</font>**
+2. **引用报错问题**：ts compile报错：会出现在子项目之间互相引用，或者子项目引用公共依赖的过程中。        
+   **<font color="#008000">解决办法：ts报错，检查下tsconfig，是否指定了文件范围（include/exclude），如果没有则将依赖的路径配置进去。</font>**  
+3. **webpack报错**: 'You attempted to import ... Relative imports outside of src/ are not supported':这是因为create-react-app限制了代码引用范围src/。    
+   **<font color="#008000">解决办法：去除webpack中的moduleScopePlugin：
+   webpackConfig.resolve.plugins = webpackConfig.resolve.plugins.filter((plugin) => !(plugin.constructor && plugin.constructor.name === 'ModuleScopePlugin'),);  </font>**
+4. **webpack报错**：'File was processed with these loaders...'：这是因为引入的代码未经过some loaders处理，需要手动添加处理规则：
+  例如 babel loader处理tsx–：                                               
+![cssInJs](/images/js/babel.png)  
+5. **公共依赖里的文件ts类型问题**：这种情况出现在公共依赖不是独立的项目，这个时候如果直接引用，且类型书写正确的情况下，对子项目实际上无任何影响，但是妨碍了我们在进行公共组件编写时候的类型判断。此种类型有几下几种你可能：   
+**<font color="#008000"> 1）文件自身的一些类型check错误，如无法使用tsx，无法定义type等：公共依赖工作区建立自己的tsoonfig，可以覆盖最外层的tsconfig配置，但同时可以extends一些属性，相当于给独立的项目做ts check配置。 </font>**  
+**<font color="#008000"> 2）公共依赖中第三方包无法解析类型:</font>**     
+**<font color="#008000">     1.1. 该第三方包是公共deps中独有依赖（子项目中都没有）：如果需要指定类型，你需要手动将该第三方包install至公共依赖下，让其暴露在package.json中。      </font>**    
+**<font color="#008000">     1.2. 该第三方包在子项目和公共依赖中都有用到（如react、tea-components等）：如果指需要指定类型：   </font>**     
+> -  **<font color="#008000"> 可以选择手动在公共deps中的package.json里手动声明此依赖：无需担心重复下载，因为子项目执行install时根目录下的node_modules已经有了此包，这个时候pnpm会在公共deps下node_modules中自动建立链接，但需要注意版本问题（如果版本不一致，还是会多一次下载）。  </font>**  
+> -  **<font color="#008000"> 也可以在tsconfig中指定path（从最外层的node_modules/.pnpm下手动引入）,例如：（上面的办法更规范，因为一旦版本有变更，手动引入的方式就需要重新手动去改，否则会有类型错误的可能）   </font>** 
+6. **建立依赖关系**：子项目之间/子项目与公共deps之间：在pnpm workspace中任何项目之间的依赖都可以通过install去建立（相对路径也可以实现，但不推荐），例如在子项目中install公共deps，此时会在子项目下的node_modules找到公共deps。或者在子项目之间install，需要注意的是子项目可能会更改版本号，如果版本更新后，需要重新install
