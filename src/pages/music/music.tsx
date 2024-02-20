@@ -1,6 +1,8 @@
 import useHasMounted from '@/hooks/useHasMounted'
 import dynamic from 'next/dynamic'
 const RcPlayer = dynamic(() => import('react-aplayer'), { ssr: false }) as any
+import React, { useEffect } from 'react'
+
 
 const audio = [
   {
@@ -62,6 +64,14 @@ const audio = [
 ]
 const Music = () => {
     const hasMounted =  useHasMounted()
+
+    useEffect(()=>{
+     const wrapper = document.querySelector('.aplayer')
+     if(wrapper) {
+      wrapper.style.background = 'unset'
+     }
+    },[])
+
   return (
     <>
     {hasMounted ? <RcPlayer audio={audio as any} style={{background:'unset'}}/> : '播放器loading'}
