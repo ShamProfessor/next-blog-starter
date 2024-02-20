@@ -64,7 +64,7 @@ const Music = () => {
     const hasMounted =  useHasMounted()
   return (
     <>
-    {hasMounted ? <RcPlayer audio={audio as any} /> : '播放器loading'}
+    {hasMounted ? <RcPlayer audio={audio as any} style={{background:'unset'}}/> : '播放器loading'}
     </>
   )
 }
