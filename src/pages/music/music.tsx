@@ -63,18 +63,15 @@ const audio = [
   },
 ]
 const Music = () => {
-
-    useEffect(()=>{
-     setTimeout(()=>{
-     const wrapper = document.querySelector('.aplayer') as any
-     if(wrapper) {
-      wrapper.style.background = 'unset'
-     }
-      },0)
-    },[])
+  const onInit = ()=>{
+    setTimeout(()=>{
+    const wrapper = document.querySelector('.aplayer') as any
+    wrapper.style.background = 'unset'
+    },0)
+  }
 
   return (
-    <RcPlayer audio={audio as any}/>
+    <RcPlayer audio={audio as any} onInit={onInit}/>
   )
 }
 
