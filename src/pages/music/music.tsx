@@ -66,7 +66,7 @@ const Music = () => {
     const hasMounted =  useHasMounted()
 
     useEffect(()=>{
-     const wrapper = document.querySelector('.aplayer')
+     const wrapper = document.querySelector('.aplayer') as any
      if(wrapper) {
       wrapper.style.background = 'unset'
      }
