@@ -63,19 +63,18 @@ const audio = [
   },
 ]
 const Music = () => {
-    const hasMounted =  useHasMounted()
 
     useEffect(()=>{
+     setTimeout(()=>{
      const wrapper = document.querySelector('.aplayer') as any
      if(wrapper) {
       wrapper.style.background = 'unset'
      }
+      },0)
     },[])
 
   return (
-    <>
-    {hasMounted ? <RcPlayer audio={audio as any} style={{background:'unset'}}/> : '播放器loading'}
-    </>
+    <RcPlayer audio={audio as any}/>
   )
 }
 
